@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<!--
+  index.html - the page structure.
+  Every number you see on this page is computed in your browser by the
+  JavaScript files in /js (no QR libraries, no internet needed).
+  The scripts are loaded as classic <script> tags (not modules) so the page
+  also works when you simply double-click this file.
+-->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Why a scratched QR code still scans</title>
+  <meta name="description" content="Damage a QR code and watch Reed-Solomon error correction rebuild the message. Interactive, runs entirely in your browser.">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="hero">
+  <p class="eyebrow">How QR codes work</p>
+  <h1>Scratch a QR code. It still works. Here&rsquo;s why.</h1>
+  <p class="lede">
+    A QR code secretly stores <strong>extra repair bytes</strong> next to your message.
+    Damage the code below and watch the decoder rebuild what was lost &mdash;
+    until you damage too much.
+  </p>
+  <ol class="quickstart" aria-label="How to use this page">
+    <li><span>1</span> It&rsquo;s already smudged &mdash; and still readable. </li>
+    <li><span>2</span> <strong>Drag across the code</strong> to damage it more.</li>
+    <li><span>3</span> Watch the verdict. Can you break it?</li>
+  </ol>
+</header>
+
+<main>
+
+  <!-- ============ THE MAIN INTERACTIVE DEMO ============ -->
+  <section class="demo" aria-labelledby="demo-h">
+    <h2 id="demo-h" class="sr-only">Damage a QR code</h2>
+
+    <div class="stage">
+      <div class="canvas-wrap">
+        <canvas id="qr" width="640" height="640" role="img" aria-label="QR code"></canvas>
+      </div>
+      <p id="caption" class="caption"></p>
+
+      <div class="tools" role="group" aria-label="Damage tools">
+        <div class="tool-row">
+          <span class="tool-label">Brush</span>
+          <label class="pill"><input type="radio" name="brush" value="erase" checked> <span>&#11036; Wipe out</span></label>
+          <label class="pill"><input type="radio" name="brush" value="ink"> <span>&#11035; Ink over</span></label>
+          <label class="size">Size
+            <input type="range" id="radius" min="1" max="7" value="3" aria-label="Brush size">
+          </label>
+        </div>
+        <div class="tool-row">
+          <button type="button" id="btnStain">&#9749; Coffee stain</button>
+          <button type="button" id="btnScatter">&#10022; Scatter noise</button>
+          <button type="button" id="btnLogo">&#9733; Put a logo in the middle</button>
+          <button type="button" id="btnReset" class="ghost">&#8634; Undo all damage</button>
+        </div>
+        <p class="tiny">Painting needs a mouse or finger; the buttons work with the keyboard too.</p>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="field">
+        <label for="text"><span class="step-n">A</span> Message inside the code</label>
+        <input id="text" type="text" autocomplete="off" spellcheck="false" maxlength="400"
+               value="Hello, judges! This QR code can repair itself.">
+        <p id="error" class="error" role="alert" hidden></p>
+      </div>
+
+      <fieldset class="field levels">
+        <legend><span class="step-n">B</span> Repair level <span class="hint-inline">(how many repair bytes to add)</span></legend>
+        <label class="level"><input type="radio" name="level" value="L"> <span><b>L</b> Low<small>fixes ~7%</small></span></label>
+        <label class="level"><input type="radio" name="level" value="M" checked> <span><b>M</b> Medium<small>fixes ~15%</small></span></label>
+        <label class="level"><input type="radio" name="level" value="Q"> <span><b>Q</b> Quartile<small>fixes ~25%</small></span></label>
+        <label class="level"><input type="radio" name="level" value="H"> <span><b>H</b> High<small>fixes ~30%</small></span></label>
+      </fieldset>
+
+      <div id="verdict" class="verdict" role="status" aria-live="polite"></div>
+
+      <div class="field">
+        <h3 class="mini-h">Repair budget <span class="hint-inline">&mdash; each square is one damaged <em>byte</em> the maths can fix</span></h3>
+        <div id="meter" class="meter"></div>
+        <p id="stats" class="stats"></p>
+      </div>
+
+      <div class="toggles">
+        <label class="check"><input type="checkbox" id="showEc"> <span>Show the hidden repair data
+          <i class="swatch sw-data"></i> message <i class="swatch sw-ec"></i> repair</span></label>
+        <label class="check"><input type="checkbox" id="showDamage" checked> <span>Highlight damaged bytes <small>(turn off to scan this screen with a phone)</small></span></label>
+      </div>
+
+      <div id="learned" class="learned" hidden></div>
+    </div>
+  </section>
+
+  <!-- ============ HOW IT'S MADE ============ -->
+  <section class="how" aria-labelledby="how-h">
+    <h2 id="how-h">How this code was made, step by step</h2>
+    <p class="section-lede">Everything above was generated live from your message by our own code. Click through the five stages (they update when you change the message or level).</p>
+    <div class="tabs" role="tablist" aria-label="Generation steps">
+      <button role="tab" data-step="1" aria-selected="true">1 &middot; Text &rarr; bits</button>
+      <button role="tab" data-step="2" aria-selected="false">2 &middot; Bits &rarr; bytes</button>
+      <button role="tab" data-step="3" aria-selected="false">3 &middot; Add repair bytes</button>
+      <button role="tab" data-step="4" aria-selected="false">4 &middot; Place in the grid</button>
+      <button role="tab" data-step="5" aria-selected="false">5 &middot; Mask</button>
+    </div>
+    <div id="stepPanel" class="step-panel" role="tabpanel"></div>
+  </section>
+
+  <!-- ============ GO DEEPER ============ -->
+  <section class="deeper" aria-labelledby="deep-h">
+    <h2 id="deep-h">Go deeper</h2>
+    <p class="section-lede">You don&rsquo;t need any of this to understand the idea &mdash; open what you&rsquo;re curious about.</p>
+
+    <details>
+      <summary>Inside the decoder: what it computes for the code above</summary>
+      <div id="internals" class="detail-body"></div>
+    </details>
+
+    <details>
+      <summary>The strange arithmetic: GF(256) calculator</summary>
+      <div class="detail-body">
+        <p>Reed-Solomon works on bytes, but needs adding, multiplying and dividing bytes to always give a byte. In GF(256), <b>adding is XOR</b>, and <b>multiplying adds logarithms</b> (using a table built from repeatedly doubling and reducing by 0x11D). Try it:</p>
+        <div class="calc">
+          <label>a <input id="gfA" type="number" min="0" max="255" value="87"></label>
+          <label>b <input id="gfB" type="number" min="0" max="255" value="131"></label>
+        </div>
+        <pre id="gfOut" class="mono-box"></pre>
+      </div>
+    </details>
+
+    <details>
+      <summary>The generator polynomial for the current repair level</summary>
+      <div class="detail-body">
+        <p>The repair bytes are chosen so the whole block is divisible by this polynomial (its roots are &alpha;<sup>0</sup>, &alpha;<sup>1</sup>, &hellip;). Coefficients are shown as powers of &alpha; (the number 2 in GF(256)).</p>
+        <pre id="genPoly" class="mono-box"></pre>
+      </div>
+    </details>
+
+    <details>
+      <summary>Capacity table: versions 1&ndash;10</summary>
+      <div class="detail-body">
+        <p>Characters you can store in byte mode (plain text / URLs). Higher repair levels hold less message, because more of the code is repair data.</p>
+        <div class="table-wrap"><table id="capTable"></table></div>
+      </div>
+    </details>
+
+    <details>
+      <summary>What this demo leaves out (honest limits)</summary>
+      <div class="detail-body">
+        <ul>
+          <li><b>Finding the code in a photo.</b> A phone camera must locate the three corner squares, straighten the picture and turn pixels into a grid. Our decoder starts from the grid, because the repair step is the part we are explaining. (This is also why damaging a corner square would stop a real phone sooner than it stops this decoder.)</li>
+          <li><b>Versions 1&ndash;10 only</b> (21&times;21 to 57&times;57 modules), and only the numeric, alphanumeric and byte modes. Kanji, structured-append and Micro QR are not included.</li>
+          <li><b>Real scanners can try extra tricks</b> (for example &ldquo;erasure decoding&rdquo; when they know which bytes are unreadable), so a phone may read some codes this decoder gives up on, or the other way round.</li>
+        </ul>
+      </div>
+    </details>
+  </section>
+
+</main>
+
+<footer>
+  <p>Built for the CIS hackathon. All QR encoding, Reed-Solomon maths and decoding is our own code in <code>js/</code> &mdash; no libraries. Open <code>tests/tests.html</code> to run the self-checks in your browser.</p>
+</footer>
+
+<!-- Load order matters: each file uses the ones above it. -->
+<script src="js/gf256.js"></script>
+<script src="js/reedsolomon.js"></script>
+<script src="js/tables.js"></script>
+<script src="js/layout.js"></script>
+<script src="js/encoder.js"></script>
+<script src="js/decoder.js"></script>
+<script src="js/ui.js"></script>
+</body>
+</html>

@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<!-- Open this page in a browser: it runs the self-checks for the QR engine and shows PASS/FAIL. -->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>QR engine self-tests</title>
+  <style>
+    body { font: 15px/1.5 system-ui, sans-serif; max-width: 760px; margin: 24px auto; padding: 0 16px; }
+    .pass { color: #15803d; } .fail { color: #b91c1c; font-weight: 700; }
+    #summary { font-size: 20px; font-weight: 800; margin: 12px 0; }
+    li { margin: 2px 0; }
+  </style>
+</head>
+<body>
+<h1>QR engine self-tests</h1>
+<div id="summary">Running&hellip;</div>
+<ul id="results"></ul>
+
+<script src="../js/gf256.js"></script>
+<script src="../js/reedsolomon.js"></script>
+<script src="../js/tables.js"></script>
+<script src="../js/layout.js"></script>
+<script src="../js/encoder.js"></script>
+<script src="../js/decoder.js"></script>
+<script>
+(function () {
+  const QR = window.QR;
+  const list = document.getElementById("results");
+  let pass = 0, fail = 0;
+  const eq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+  function check(name, ok, extra) {
+    const li = document.createElement("li");
+    li.className = ok ? "pass" : "fail";
+    li.textContent = (ok ? "PASS  " : "FAIL  ") + name + (!ok && extra ? "  (" + extra + ")" : "");
+    list.appendChild(li);
+    ok ? pass++ : fail++;
+  }
+  const rnd = (n) => Math.floor(Math.random() * n);
+
+  // GF(256)
+  check("2 x 128 = 0x1D (wraps using the QR polynomial)", QR.GF.mul(2, 128) === 0x1d);
+  let inv = true; for (let a = 1; a < 256; a++) if (QR.GF.mul(a, QR.GF.inv(a)) !== 1) inv = false;
+  check("every non-zero byte has an inverse", inv);
+
+  // Official worked example: HELLO WORLD
+  let e = QR.Encoder.encode("HELLO WORLD", "Q");
+  check("HELLO WORLD (1-Q) data bytes match the standard's example", eq(e.dataCodewords, [32,91,11,120,209,114,220,77,67,64,236,17,236]));
+  check("HELLO WORLD (1-Q) repair bytes match the standard's example", eq(e.blocks[0].ec, [168,72,22,82,217,54,156,0,46,15,180,122,16]));
+  e = QR.Encoder.encode("HELLO WORLD", "M");
+  check("HELLO WORLD (1-M) repair bytes match", eq(e.blocks[0].ec, [196,35,39,119,235,215,231,226,93,23]));
+  check("format bits for level L, mask 4 match the standard", QR.Layout.formatWord("L", 4) === 0b110011000101111);
+
+  // Capacity tables are consistent with the grid geometry
+  let tablesOk = true;
+  for (let v = 1; v <= QR.Tables.MAX_VERSION; v++) {
+    const tpl = QR.Layout.functionTemplate(v);
+    const pos = QR.Layout.dataPositions(v, tpl.isFunction);
+    for (const l of QR.Tables.LEVELS) if (QR.Tables.blockSpec(v, l).totalCw !== Math.floor(pos.length / 8)) tablesOk = false;
+  }
+  check("block tables add up to the grid capacity for all versions and levels", tablesOk);
+
+  // Round trips
+  const texts = ["a", "Hello, world!", "https://example.com/a?b=c", "0123456789", "HELLO WORLD 123", "Ünï ✓ 日本語 🙂", "x".repeat(120)];
+  let rt = true, rtMsg = "";
+  for (const t of texts) for (const l of QR.Tables.LEVELS) for (const m of [undefined, 2, 5]) {
+    let enc; try { enc = QR.Encoder.encode(t, l, { mask: m }); } catch (x) { continue; }
+    const d = QR.Decoder.decode(enc.modules);
+    if (!(d.ok && d.text === t)) { rt = false; rtMsg = t.slice(0, 10) + " " + l + " m" + m; }
+  }
+  check("encode then decode returns the same text (all levels and masks)", rt, rtMsg);
+
+  // Reed-Solomon fuzz
+  let bad = 0;
+  for (let i = 0; i < 1500; i++) {
+    const ecLen = [7, 10, 13, 18, 22, 28][rnd(6)], len = 10 + rnd(90);
+    const data = Array.from({ length: len }, () => rnd(256));
+    const block = data.concat(QR.RS.encode(data, ecLen));
+    const nErr = rnd(Math.floor(ecLen / 2) + 1), broken = block.slice(), used = new Set();
+    while (used.size < nErr) used.add(rnd(block.length));
+    for (const k of used) broken[k] ^= 1 + rnd(255);
+    const r = QR.RS.decode(broken, ecLen);
+    if (!r.ok || !eq(r.corrected, block)) bad++;
+  }
+  check("Reed-Solomon repairs random damage up to its limit (1500 random trials)", bad === 0, bad + " failures");
+
+  let detected = 0;
+  for (let i = 0; i < 500; i++) {
+    const data = Array.from({ length: 30 }, () => rnd(256));
+    const block = data.concat(QR.RS.encode(data, 10)), broken = block.slice(), used = new Set();
+    while (used.size < 8) used.add(rnd(block.length));
+    for (const k of used) broken[k] ^= 1 + rnd(255);
+    if (!QR.RS.decode(broken, 10).ok) detected++;
+  }
+  check("damage beyond the limit is detected and refused, not silently 'fixed' (500 trials)", detected >= 480, detected + "/500 detected");
+
+  document.getElementById("summary").textContent = fail === 0 ? "All " + pass + " checks passed" : fail + " failed, " + pass + " passed";
+  document.getElementById("summary").className = fail === 0 ? "pass" : "fail";
+})();
+</script>
+</body>
+</html>
