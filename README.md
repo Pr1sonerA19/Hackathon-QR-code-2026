@@ -9,11 +9,6 @@ You type a message, the page builds a real QR code, and you damage it with your 
 damaged code, repairs it, and tells you whether it recovered the message. Push the damage past
 the limit and it refuses to guess.
 
-## Run it
-
-* **Just double-click `index.html`.** No install, no server, no internet, no sign-in.
-* To run the self-checks, open `tests/tests.html` in a browser (or run `node tests/run-node.js`).
-
 ## What is in this folder
 
 | File | What it does |
@@ -28,8 +23,6 @@ the limit and it refuses to guess.
 | `js/ui.js` | Drawing, damage tools, explanations. Contains no QR maths |
 | `tests/` | Self-checks (known test vectors, random fuzzing, round trips) |
 | `CODE_WALKTHROUGH.md` | Step-by-step explanation of every file and why it is needed |
-| `INTERVIEW_PREP.md` | Likely judge questions with plain-language answers |
-| `SUBMISSION_TEXT.md` | Draft project-page text and a demo-video script |
 
 ## How it meets the rules
 
@@ -56,20 +49,3 @@ the limit and it refuses to guess.
   code in a photo, straighten it and read the pixels; we do not do that part.
 * Versions 1-10 only (21x21 to 57x57), and the numeric, alphanumeric and byte modes.
 * Real scanners can use extra tricks, so a phone may read some codes this decoder gives up on.
-
-## Put it online (GitHub Pages, Windows)
-
-1. Make a free GitHub account, click **New repository**, name it (for example `qr-repair`), set it to **Public**.
-2. On the new repository page choose **uploading an existing file**, drag in **everything from
-   this folder** (including the `js` and `tests` folders), and click **Commit changes**.
-3. Go to **Settings, then Pages**. Under *Build and deployment* choose **Deploy from a branch**,
-   branch **main**, folder **/ (root)**, and Save.
-4. After a minute your live link appears at the top of that page:
-   `https://YOUR-NAME.github.io/qr-repair/`. Open it in a private window to check it works
-   without signing in. The repository link is your "public repository".
-
-## AI use
-
-Declare how AI tools were used when you submit, following the rules on the hackathon's
-fairness page. Whoever presents the project should read `CODE_WALKTHROUGH.md` and
-`INTERVIEW_PREP.md` and be able to explain every file in their own words.
