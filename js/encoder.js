@@ -19,10 +19,10 @@
    ===================================================================== */
 (function () {
   "use strict";
-  const QR = (window.QR = window.QR || {});
+  const QR = (window.QR = window.QR || {}); /* QR settings is either the settings, or nothing */
   const T = QR.Tables, L = QR.Layout, RS = QR.RS;
 
-  const ALNUM = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ $%*+-./:";
+  const ALNUM = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ $%*+-./:"; /* Define the alpha-numeric sequence */
 
   /** Pick the most compact mode that can represent the text. */
   function chooseMode(text) {
